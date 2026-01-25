@@ -19,6 +19,11 @@ theme:
 extra_css:
   - stylesheets/extra.css
 
+extra:
+  analytics:
+    provider: google
+    property: G-44BW8MK9FH
+
 markdown_extensions:
   - pymdownx.highlight:
       anchor_linenums: true
