@@ -8,18 +8,7 @@ A stylish terminal UI for [Claude Code](https://docs.anthropic.com/en/docs/claud
 uvx claudechic /welcome
 ```
 
-<table>
-  <tbody>
-  <tr>
-    <td><img alt="Claude Chic Image" src="https://github.com/user-attachments/assets/24e083af-a500-43eb-80fb-bd5e0a2d9f4c" /></td>
-    <td><img alt="Claude Chic Image" src="https://github.com/user-attachments/assets/323e54dc-f7e4-4c5a-8b83-24df423c3eb8" /></td>
-  </tr>
-  <tr>
-    <td><img alt="Claude Chic Image" src="https://github.com/user-attachments/assets/6b6f52c0-e7ae-491a-b3e6-ff43c38678a8" /></td>
-    <td><img alt="Claude Chic Image" src="https://github.com/user-attachments/assets/6f999ada-c18e-413a-b1d2-a22c14fbcedd" /></td>
-  </tr>
-  </tbody>
-</table>
+https://github.com/user-attachments/assets/bbdae8ac-9ddb-455b-8282-b52cfb73c4e8
 
 ## Install
 
