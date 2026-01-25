@@ -1903,6 +1903,24 @@ class ChatApp(App):
         if self.agent_mgr and agent.id == self.agent_mgr.active_id:
             self.show_error(message, exception)
 
+        # Report error to analytics (sanitized - no paths or user data)
+        error_type = type(exception).__name__ if exception else "Unknown"
+        status_code = 0
+        if exception:
+            # Extract HTTP status code if present in error message
+            err_str = str(exception)
+            if "400" in err_str:
+                status_code = 400
+            elif "401" in err_str:
+                status_code = 401
+            elif "429" in err_str:
+                status_code = 429
+            elif "500" in err_str:
+                status_code = 500
+        self.run_worker(
+            capture("error_occurred", error_type=error_type, status_code=status_code)
+        )
+
     def on_connection_lost(self, agent: Agent) -> None:
         """Handle lost SDK connection - reconnect."""
         log.info(f"Connection lost for agent {agent.name}, reconnecting...")

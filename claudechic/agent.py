@@ -445,15 +445,20 @@ class Agent:
             raise
         except Exception as e:
             # Check if this is a connection error (SDK process died)
+            # Be specific: only actual connection failures, not API errors mentioning "connection"
+            error_type = type(e).__name__
+            error_str = str(e).lower()
             is_connection_error = (
-                "ConnectionError" in type(e).__name__ or "connection" in str(e).lower()
+                "ConnectionError" in error_type
+                or "BrokenPipeError" in error_type
+                or ("connection" in error_str and "api" not in error_str)
             )
 
             if self._interrupted:
                 log.info("Suppressed error after interrupt: %s", e)
             else:
                 log.exception("Response processing failed")
-                if self.observer and not is_connection_error:
+                if self.observer:
                     self.observer.on_error(self, "Response failed", e)
 
             # Auto-reconnect on connection errors
