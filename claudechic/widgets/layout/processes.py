@@ -6,12 +6,19 @@ from textual.widget import Widget
 from textual.widgets import Static
 
 from claudechic.processes import BackgroundProcess
+from claudechic.widgets.base.cursor import ClickableMixin
 
 
-class ProcessItem(Static):
-    """Single process item with PID and command."""
+class ProcessItem(Static, ClickableMixin):
+    """Single process item with PID and command. Click to view details."""
 
-    can_focus = False
+    DEFAULT_CSS = """
+    ProcessItem:hover {
+        background: $panel;
+    }
+    """
+
+    can_focus = True
 
     def __init__(self, process: BackgroundProcess) -> None:
         super().__init__()
@@ -23,6 +30,12 @@ class ProcessItem(Static):
         if len(cmd) > 20:
             cmd = cmd[:19] + "…"
         return Text.assemble(("● ", "yellow"), (cmd, ""))
+
+    def on_click(self, event) -> None:  # noqa: ARG002
+        """Show process detail modal."""
+        from claudechic.widgets.modals.process_detail import ProcessDetailModal
+
+        self.app.push_screen(ProcessDetailModal(self.process))
 
 
 class ProcessPanel(Widget):
