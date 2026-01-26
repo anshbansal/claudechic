@@ -145,7 +145,7 @@ will be ready for you.
 *Just for fun, you can ask Claude to play Chess against itself.  This doesn't
 use worktrees, but does use multiple agents:*
 
-<script src="https://asciinema.org/a/LqXYSEsLQIHmIEYQ.js" id="asciicast-LqXYSEsLQIHmIEYQ" async="true"></script>
+<video src="https://github.com/user-attachments/assets/735ebc91-335e-4476-8fde-f49ce1df056a" autoplay loop muted playsinline style="max-width: 100%"></video>
 
 ## FAQ
 
