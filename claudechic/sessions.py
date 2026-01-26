@@ -3,6 +3,7 @@
 import json
 import os
 import re
+from datetime import datetime
 from pathlib import Path
 
 import aiofiles
@@ -91,8 +92,6 @@ def _extract_session_info(filepath: Path) -> tuple[str, int, float]:
 
     Returns (title, msg_count, last_timestamp_unix).
     """
-    from datetime import datetime
-
     summary = ""
     first_msg = ""
     msg_count = 0
@@ -155,8 +154,8 @@ async def get_recent_sessions(
         cwd: Project directory. If None, uses current working directory.
 
     Returns:
-        List of (session_id, title, mtime, msg_count) tuples,
-        sorted by modification time descending.
+        List of (session_id, title, timestamp, msg_count) tuples,
+        sorted by content timestamp descending.
     """
     sessions_dir = get_project_sessions_dir(cwd)
     if not sessions_dir:
