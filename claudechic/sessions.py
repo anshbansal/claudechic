@@ -45,6 +45,14 @@ def find_session_by_prefix(prefix: str, cwd: Path | None = None) -> str | None:
     return matches[0] if len(matches) == 1 else None
 
 
+def count_sessions(cwd: Path | None = None) -> int:
+    """Count session files without parsing them."""
+    sessions_dir = get_project_sessions_dir(cwd)
+    if not sessions_dir:
+        return 0
+    return sum(1 for f in sessions_dir.glob("*.jsonl") if is_valid_uuid(f.stem))
+
+
 def get_project_sessions_dir(cwd: Path | None = None) -> Path | None:
     """Get the sessions directory for a project.
 

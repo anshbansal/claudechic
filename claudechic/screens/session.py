@@ -81,6 +81,11 @@ class SessionScreen(Screen[str | None]):
             yield ListView(id="session-list")
 
     def on_mount(self) -> None:
+        from claudechic.sessions import count_sessions
+
+        total = count_sessions(self._cwd)
+        title = self.query_one("#session-title", Static)
+        title.update(f"Resume Session ({total} sessions)")
         self._update_list("")
         self.query_one("#session-search", Input).focus()
 
