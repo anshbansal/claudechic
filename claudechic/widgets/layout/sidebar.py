@@ -1,5 +1,6 @@
 """Agent sidebar widget for multi-agent management."""
 
+import re
 import time
 from pathlib import Path
 
@@ -547,7 +548,9 @@ class AgentSection(SidebarSection):
         if branch in self._worktrees:
             return
         item = WorktreeItem(branch, path)
-        item.id = f"worktree-{branch}"
+        # Sanitize branch name for valid Textual ID (letters, numbers, _, - only)
+        safe_id = re.sub(r"[^a-zA-Z0-9_-]", "-", branch)
+        item.id = f"worktree-{safe_id}"
         # Apply current compact mode to new item
         item.set_class(self._compact, "compact")
         self._worktrees[branch] = item
