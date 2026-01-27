@@ -40,7 +40,10 @@ def _load_config() -> dict:
             _save_config()
     else:
         # New install - create config with fresh ID and save
-        _config = {"analytics": {"enabled": True, "id": str(uuid.uuid4())}}
+        _config = {
+            "analytics": {"enabled": True, "id": str(uuid.uuid4())},
+            "recent-tools-expanded": 2,
+        }
         _new_install = True
         _save_config()
 

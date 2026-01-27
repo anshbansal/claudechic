@@ -14,6 +14,7 @@ from claudechic.agent import (
     ToolUse,
     TextBlock,
 )
+from claudechic.config import _load_config
 from claudechic.enums import ToolName
 from claudechic.formatting import format_agent_prompt
 from claudechic.widgets.content.message import (
@@ -40,8 +41,8 @@ COLLAPSE_BY_DEFAULT = {
     ToolName.SKILL,
 }
 
-# How many recent tools to keep expanded
-RECENT_TOOLS_EXPANDED = 3
+# How many recent tools to keep expanded (0 = collapse all)
+RECENT_TOOLS_EXPANDED = _load_config().get("recent-tools-expanded", 2)
 
 
 class ChatView(AutoHideScroll):
@@ -246,12 +247,12 @@ class ChatView(AutoHideScroll):
             return
 
         # Auto-collapse old tools
-        while len(self._recent_tools) >= RECENT_TOOLS_EXPANDED:
+        while len(self._recent_tools) >= RECENT_TOOLS_EXPANDED > 0:
             old = self._recent_tools.pop(0)
             old.collapse()
 
         # Create widget based on tool type
-        collapsed = tool.name in COLLAPSE_BY_DEFAULT
+        collapsed = RECENT_TOOLS_EXPANDED == 0 or tool.name in COLLAPSE_BY_DEFAULT
         cwd = self._agent.cwd if self._agent else None
         if tool.name == ToolName.TASK:
             widget = TaskWidget(block, collapsed=collapsed, cwd=cwd)
