@@ -543,7 +543,6 @@ class ChatApp(App):
 
         return ClaudeAgentOptions(
             permission_mode="default",
-            env={"ANTHROPIC_API_KEY": ""},
             setting_sources=["user", "project", "local"],
             cwd=cwd,
             resume=resume,
