@@ -386,6 +386,15 @@ MarkdownTableContent > .header {
 
 MarkdownFence {
     background: $surface;
+    scrollbar-size-horizontal: 1;
+    scrollbar-background: $surface;
+    scrollbar-color: $surface;
+}
+
+MarkdownFence:hover {
+    scrollbar-color: $panel;
+    scrollbar-color-hover: $panel-lighten-1;
+    scrollbar-color-active: $panel-lighten-2;
 }
 
 /* Remove bottom margin from last element in markdown containers */
