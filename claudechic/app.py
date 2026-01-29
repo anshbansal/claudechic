@@ -845,10 +845,10 @@ class ChatApp(App):
             display_as: Optional shorter text to show in UI
         """
         # Clear visual indicator (images already on agent.pending_images)
-        try:
-            self.query_one("#image-attachments", ImageAttachments).clear()
-        except Exception:
-            pass
+        if attachments := self.query_one_optional(
+            "#image-attachments", ImageAttachments
+        ):
+            attachments.clear()
 
         # Start async send (returns immediately, callbacks handle UI)
         create_safe_task(
@@ -1257,13 +1257,10 @@ class ChatApp(App):
 
     def action_quit(self) -> None:  # type: ignore[override]
         # If history search is visible, cancel it
-        try:
-            hs = self.query_one("#history-search", HistorySearch)
+        if hs := self.query_one_optional("#history-search", HistorySearch):
             if hs.styles.display != "none":
                 hs.action_cancel()
                 return
-        except Exception:
-            pass
 
         # If shell command is running, kill it
         if self._shell_process is not None:
@@ -1278,13 +1275,10 @@ class ChatApp(App):
             return
 
         # If input has text, clear it first
-        try:
-            chat_input = self.query_one("ChatInput", ChatInput)
+        if chat_input := self.query_one_optional("ChatInput", ChatInput):
             if chat_input.text:
                 chat_input.text = ""
                 return
-        except Exception:
-            pass  # No input widget or not mounted
 
         now = time.time()
         if hasattr(self, "_last_quit_time") and now - self._last_quit_time < 1.0:
@@ -2337,11 +2331,8 @@ class ChatApp(App):
 
     def _update_vi_mode(self, enabled: bool) -> None:
         """Update vi-mode on all ChatInput widgets and footer."""
-        try:
-            chat_input = self.query_one("#input", ChatInput)
+        if chat_input := self.query_one_optional("#input", ChatInput):
             chat_input.enable_vi_mode(enabled)
             # Update footer with initial mode
             mode = chat_input.vi_mode if enabled else None
             self.status_footer.update_vi_mode(mode, enabled)
-        except Exception:
-            pass

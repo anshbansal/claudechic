@@ -183,19 +183,15 @@ class DiffSidebar(Vertical):
     def set_active(self, path: str) -> None:
         """Highlight the active file in the sidebar."""
         if self._active_path:
-            try:
-                old_item = self.query_one(
-                    f"#sidebar-{_sanitize_id(self._active_path)}", DiffFileItem
-                )
+            if old_item := self.query_one_optional(
+                f"#sidebar-{_sanitize_id(self._active_path)}", DiffFileItem
+            ):
                 old_item.remove_class("active")
-            except Exception:
-                pass
         self._active_path = path
-        try:
-            new_item = self.query_one(f"#sidebar-{_sanitize_id(path)}", DiffFileItem)
+        if new_item := self.query_one_optional(
+            f"#sidebar-{_sanitize_id(path)}", DiffFileItem
+        ):
             new_item.add_class("active")
-        except Exception:
-            pass
 
 
 class CommentInput(TextArea):
@@ -517,10 +513,8 @@ class DiffView(VerticalScroll):
         path = self.changes[file_idx].path
         if hunk_idx >= 0:
             hunk_id = f"hunk-{_sanitize_id(path)}-{hunk_idx}"
-            try:
-                self.query_one(f"#{hunk_id}", HunkWidget).focus()
-            except Exception:
-                pass
+            if widget := self.query_one_optional(f"#{hunk_id}", HunkWidget):
+                widget.focus()
         else:
             # Binary file with no hunks
             self.post_message(DiffFileItem.Selected(path))
@@ -534,10 +528,7 @@ class DiffView(VerticalScroll):
             return None
         path = self.changes[file_idx].path
         hunk_id = f"hunk-{_sanitize_id(path)}-{hunk_idx}"
-        try:
-            return self.query_one(f"#{hunk_id}", HunkWidget)
-        except Exception:
-            return None
+        return self.query_one_optional(f"#{hunk_id}", HunkWidget)
 
     def get_comments(self) -> list[HunkComment]:
         """Collect all non-empty comments from hunks."""

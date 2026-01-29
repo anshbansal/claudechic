@@ -123,41 +123,26 @@ class StatusFooter(Static):
 
     def watch_branch(self, value: str) -> None:
         """Update branch label when branch changes."""
-        try:
-            label = self.query_one("#branch-label", Static)
+        if label := self.query_one_optional("#branch-label", Static):
             label.update(f"⎇ {value}" if value else "")
-        except Exception:
-            pass
 
     def watch_model(self, value: str) -> None:
         """Update model label when model changes."""
-        try:
-            label = self.query_one("#model-label", ModelLabel)
+        if label := self.query_one_optional("#model-label", ModelLabel):
             label.update(value if value else "")
-        except Exception:
-            pass
 
     def watch_auto_edit(self, value: bool) -> None:
         """Update auto-edit label when setting changes."""
-        try:
-            label = self.query_one("#auto-edit-label", AutoEditLabel)
+        if label := self.query_one_optional("#auto-edit-label", AutoEditLabel):
             label.update("Auto-edit: on" if value else "Auto-edit: off")
             label.set_class(value, "active")
-        except Exception:
-            pass
 
     def update_processes(self, processes: list[BackgroundProcess]) -> None:
         """Update the process indicator."""
-        try:
-            indicator = self.query_one("#process-indicator", ProcessIndicator)
+        if indicator := self.query_one_optional("#process-indicator", ProcessIndicator):
             indicator.update_processes(processes)
-        except Exception:
-            pass
 
     def update_vi_mode(self, mode: ViMode | None, enabled: bool = True) -> None:
         """Update the vi-mode indicator."""
-        try:
-            label = self.query_one("#vi-mode-label", ViModeLabel)
+        if label := self.query_one_optional("#vi-mode-label", ViModeLabel):
             label.set_mode(mode, enabled)
-        except Exception:
-            pass

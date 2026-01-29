@@ -26,15 +26,10 @@ class BaseToolWidget(Static):
         """Toggle collapsible when clicking anywhere on the widget."""
         if event.button != 1:  # Left click only
             return
-        try:
-            collapsible = self.query_one(QuietCollapsible)
+        if collapsible := self.query_one_optional(QuietCollapsible):
             collapsible.collapsed = not collapsible.collapsed
-        except Exception:
-            pass  # No collapsible in this widget
 
     def collapse(self) -> None:
         """Collapse this widget's collapsible."""
-        try:
-            self.query_one(QuietCollapsible).collapsed = True
-        except Exception:
-            pass  # No collapsible or not mounted
+        if collapsible := self.query_one_optional(QuietCollapsible):
+            collapsible.collapsed = True

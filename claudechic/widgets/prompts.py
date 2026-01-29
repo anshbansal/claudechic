@@ -42,14 +42,11 @@ class BasePrompt(Static):
     def _update_selection(self) -> None:
         """Update visual selection state."""
         for i in range(self._total_options()):
-            try:
-                opt = self.query_one(f"#{self._get_option_id(i)}", Static)
+            if opt := self.query_one_optional(f"#{self._get_option_id(i)}", Static):
                 if i == self.selected_idx:
                     opt.add_class("selected")
                 else:
                     opt.remove_class("selected")
-            except Exception:
-                pass  # Widget may not be mounted yet
 
     def _resolve(self, result: Any) -> None:
         """Set result and signal completion."""

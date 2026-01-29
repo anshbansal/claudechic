@@ -111,11 +111,8 @@ class ChatMessage(Static):
     def _get_stream(self):
         """Get or create the MarkdownStream for this message."""
         if self._stream is None:
-            try:
-                md = self.query_one("#content", Markdown)
+            if md := self.query_one_optional("#content", Markdown):
                 self._stream = Markdown.get_stream(md)
-            except Exception:
-                pass  # Widget not mounted yet
         return self._stream
 
     def append_content(self, text: str) -> None:
