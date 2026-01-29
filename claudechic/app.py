@@ -1908,6 +1908,7 @@ class ChatApp(App):
             new_chat_view = self._chat_views.get(new_agent.id)
             if new_chat_view:
                 new_chat_view.remove_class("hidden")
+                new_chat_view.flush_deferred_updates()
 
             # Restore new agent's input
             self.chat_input.text = new_agent.pending_input

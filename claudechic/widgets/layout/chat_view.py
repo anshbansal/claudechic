@@ -15,7 +15,7 @@ from claudechic.agent import (
     TextBlock,
 )
 from claudechic.config import _load_config
-from claudechic.enums import ToolName
+from claudechic.enums import AgentStatus, ToolName
 from claudechic.formatting import format_agent_prompt
 from claudechic.widgets.content.message import (
     ChatMessage,
@@ -56,6 +56,11 @@ class ChatView(AutoHideScroll):
     - Tool widget lifecycle (pending_tool_widgets, active_task_widgets)
     - Thinking indicator lifecycle
     - Auto-collapse of old tool widgets
+
+    Performance optimization:
+    - When hidden (background agent), UI updates are deferred
+    - On becoming visible, the view re-renders from agent.messages
+    - This avoids CSS recalculation for hidden widgets
     """
 
     def __init__(self, *args, **kwargs) -> None:
@@ -70,6 +75,35 @@ class ChatView(AutoHideScroll):
         self._active_task_widgets: dict[str, TaskWidget] = {}
         self._recent_tools: list[ToolUseWidget | TaskWidget | AgentToolWidget] = []
         self._thinking_indicator: ThinkingIndicator | None = None
+
+        # Deferred update tracking for hidden views
+        self._needs_rerender: bool = False
+
+    # -----------------------------------------------------------------------
+    # Visibility handling (performance optimization for background agents)
+    # -----------------------------------------------------------------------
+
+    @property
+    def is_hidden(self) -> bool:
+        """Check if this ChatView is currently hidden.
+
+        Note: The 'hidden' class is managed by ChatApp.on_agent_switched(),
+        which adds/removes it when switching between agents.
+        """
+        return self.has_class("hidden")
+
+    def flush_deferred_updates(self) -> None:
+        """Re-render from agent.messages if updates were deferred while hidden.
+
+        Call this after remove_class("hidden") to render any updates that
+        accumulated while this view was in the background.
+        """
+        if self._needs_rerender:
+            self._render_full()
+            self._needs_rerender = False
+        # Always restore thinking indicator if agent is busy (even if no updates
+        # were deferred - e.g., switched away while waiting for a tool result)
+        self._restore_busy_state()
 
     # -----------------------------------------------------------------------
     # Agent switching (full re-render)
@@ -148,6 +182,7 @@ class ChatView(AutoHideScroll):
         Returns (widgets, updated_tool_index).
         """
         widgets: list[Widget] = []
+        pending_tools = self._agent.pending_tools if self._agent else {}
         for block in content.blocks:
             if isinstance(block, TextBlock):
                 msg = ChatMessage(block.text)
@@ -155,16 +190,22 @@ class ChatView(AutoHideScroll):
                 widgets.append(msg)
             elif isinstance(block, ToolUse):
                 collapse = tool_index < collapse_threshold
-                widgets.append(
-                    self._create_tool_widget(block, completed=True, collapsed=collapse)
+                # Check if tool is still pending (no result yet)
+                completed = block.id not in pending_tools
+                widget = self._create_tool_widget(
+                    block, completed=completed, collapsed=collapse
                 )
+                # Track pending tools for result updates
+                if not completed:
+                    self._pending_tool_widgets[block.id] = widget
+                widgets.append(widget)
                 tool_index += 1
 
         return widgets, tool_index
 
     def _create_tool_widget(
         self, tool: ToolUse, completed: bool = False, collapsed: bool = False
-    ) -> Widget:
+    ) -> ToolUseWidget | TaskWidget | AgentToolWidget:
         """Create a tool widget (without mounting)."""
         from claude_agent_sdk import ToolUseBlock
 
@@ -187,12 +228,20 @@ class ChatView(AutoHideScroll):
 
     def append_user_message(self, text: str, images: list[ImageAttachment]) -> None:
         """Append a user message to the view."""
+        # Defer if hidden - will re-render from agent.messages when shown
+        if self.is_hidden:
+            self._needs_rerender = True
+            return
         formatted_text, is_agent = format_agent_prompt(text)
         self._mount_user_message(formatted_text, images, is_agent=is_agent)
         self.scroll_if_tailing()
 
     def start_response(self) -> None:
         """Show thinking indicator at start of response."""
+        # Defer if hidden - no need to show spinner for background agents
+        if self.is_hidden:
+            self._needs_rerender = True
+            return
         if self._thinking_indicator is None:
             self._thinking_indicator = ThinkingIndicator()
             self.mount(self._thinking_indicator)
@@ -200,6 +249,9 @@ class ChatView(AutoHideScroll):
 
     def end_response(self) -> None:
         """Clean up at end of response."""
+        if self.is_hidden:
+            self._needs_rerender = True
+            return
         self._hide_thinking()
         self._current_response = None
 
@@ -213,6 +265,11 @@ class ChatView(AutoHideScroll):
             new_message: Whether this starts a new ChatMessage
             parent_tool_id: If set, text belongs to a Task widget
         """
+        # Defer if hidden - will re-render from agent.messages when shown
+        if self.is_hidden:
+            self._needs_rerender = True
+            return
+
         self._hide_thinking()
 
         # Route to Task widget if nested
@@ -240,6 +297,11 @@ class ChatView(AutoHideScroll):
             block: The SDK ToolUseBlock for widget construction
             parent_tool_id: If set, tool belongs to a Task widget
         """
+        # Defer if hidden - will re-render from agent.messages when shown
+        if self.is_hidden:
+            self._needs_rerender = True
+            return
+
         self._hide_thinking()
 
         # Route to Task widget if nested
@@ -279,6 +341,11 @@ class ChatView(AutoHideScroll):
             block: The SDK ToolResultBlock
             parent_tool_id: If set, result belongs to a Task widget
         """
+        # Defer if hidden - will re-render from agent.messages when shown
+        if self.is_hidden:
+            self._needs_rerender = True
+            return
+
         # Route to Task widget if nested
         if parent_tool_id and parent_tool_id in self._active_task_widgets:
             task = self._active_task_widgets[parent_tool_id]
@@ -307,6 +374,7 @@ class ChatView(AutoHideScroll):
         self._pending_tool_widgets.clear()
         self._active_task_widgets.clear()
         self._recent_tools.clear()
+        self._thinking_indicator = None
 
     # -----------------------------------------------------------------------
     # Helpers
@@ -324,3 +392,13 @@ class ChatView(AutoHideScroll):
         if self._thinking_indicator is not None:
             self._thinking_indicator.remove()
             self._thinking_indicator = None
+
+    def _restore_busy_state(self) -> None:
+        """Restore thinking indicator if agent is busy with no pending tool spinners."""
+        if self._agent and self._agent.status == AgentStatus.BUSY:
+            # Only show ThinkingIndicator if there are no pending tools
+            # (pending tools have their own inline spinners)
+            if not self._pending_tool_widgets and self._thinking_indicator is None:
+                self._thinking_indicator = ThinkingIndicator()
+                self.mount(self._thinking_indicator)
+                self.scroll_end(animate=False)
