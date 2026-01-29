@@ -50,6 +50,7 @@ def mock_sdk():
     mock_client.query = AsyncMock()
     mock_client.interrupt = AsyncMock()
     mock_client.get_server_info = AsyncMock(return_value={"commands": [], "models": []})
+    mock_client.set_permission_mode = AsyncMock()
     mock_client.receive_response = lambda: empty_async_gen()
     mock_client._transport = None  # For get_claude_pid_from_client
 

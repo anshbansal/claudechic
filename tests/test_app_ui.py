@@ -32,30 +32,33 @@ async def test_app_mounts_basic_widgets(mock_sdk):
 
 
 @pytest.mark.asyncio
-async def test_auto_edit_toggle(mock_sdk):
-    """Shift+Tab toggles auto-edit mode for current agent."""
+async def test_permission_mode_cycle(mock_sdk):
+    """Shift+Tab cycles permission mode: default -> acceptEdits -> plan -> default."""
     app = ChatApp()
     async with app.run_test() as pilot:
         assert app._agent is not None
-        assert not app._agent.auto_approve_edits
+        assert app._agent.permission_mode == "default"
 
         await pilot.press("shift+tab")
-        assert app._agent.auto_approve_edits
+        assert app._agent.permission_mode == "acceptEdits"
 
         await pilot.press("shift+tab")
-        assert not app._agent.auto_approve_edits
+        assert app._agent.permission_mode == "plan"
+
+        await pilot.press("shift+tab")
+        assert app._agent.permission_mode == "default"
 
 
 @pytest.mark.asyncio
-async def test_auto_edit_footer_updates(mock_sdk):
-    """Footer reflects auto-edit state."""
+async def test_permission_mode_footer_updates(mock_sdk):
+    """Footer reflects permission mode state."""
     app = ChatApp()
     async with app.run_test() as pilot:
         footer = app.query_one(StatusFooter)
-        assert not footer.auto_edit
+        assert footer.permission_mode == "default"
 
         await pilot.press("shift+tab")
-        assert footer.auto_edit
+        assert footer.permission_mode == "acceptEdits"
 
 
 @pytest.mark.asyncio

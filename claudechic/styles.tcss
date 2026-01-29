@@ -98,6 +98,10 @@ ModelLabel:hover {
     color: $primary;
 }
 
+.footer-label.plan-mode {
+    color: $secondary;
+}
+
 /* Shared block styling - all content blocks */
 ChatMessage, BaseToolWidget, ThinkingIndicator, ErrorMessage, SystemInfo, #input-container {
     background: transparent;

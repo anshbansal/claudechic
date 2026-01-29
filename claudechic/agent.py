@@ -169,7 +169,7 @@ class Agent:
         self.pending_images: list[ImageAttachment] = []
         self.file_index: FileIndex | None = None
         self.todos: list[dict] = []
-        self.auto_approve_edits: bool = False
+        self.permission_mode: str = "default"  # default, acceptEdits, plan
         self.session_allowed_tools: set[str] = set()  # Tools allowed for this session
         self._pending_followup: str | None = None  # Auto-send after current response
         self.model: str | None = None  # Model override (None = SDK default)
@@ -649,6 +649,12 @@ class Agent:
                     command = tool.input.get("command", "")
                     self._background_outputs[command] = output_file
 
+            # Update permission mode based on plan mode tools
+            if tool.name == ToolName.EXIT_PLAN_MODE and not tool.is_error:
+                self._set_permission_mode_local("default")
+            elif tool.name == ToolName.ENTER_PLAN_MODE and not tool.is_error:
+                self._set_permission_mode_local("plan")
+
             if self.observer:
                 self.observer.on_message_updated(self)
                 self.observer.on_tool_result(self, tool)
@@ -673,15 +679,15 @@ class Agent:
         if tool_name == ToolName.ASK_USER_QUESTION:
             return await self._handle_ask_user_question(tool_input)
 
-        # Always allow ExitPlanMode and chic MCP tools
-        if tool_name == ToolName.EXIT_PLAN_MODE:
+        # Always allow plan mode tools and chic MCP tools
+        if tool_name in (ToolName.ENTER_PLAN_MODE, ToolName.EXIT_PLAN_MODE):
             return PermissionResultAllow()
         if tool_name.startswith("mcp__chic__"):
             return PermissionResultAllow()
 
-        # Auto-approve edits if enabled
-        if self.auto_approve_edits and tool_name in self.AUTO_EDIT_TOOLS:
-            log.info(f"Auto-approved {tool_name} (auto-edit mode)")
+        # Auto-approve edits if in acceptEdits mode
+        if self.permission_mode == "acceptEdits" and tool_name in self.AUTO_EDIT_TOOLS:
+            log.info(f"Auto-approved {tool_name} (acceptEdits mode)")
             return PermissionResultAllow()
 
         # Auto-approve if tool was allowed for session
@@ -719,7 +725,7 @@ class Agent:
 
         log.info(f"Permission result: {result.choice}")
         if result.choice == PermissionChoice.ALLOW_ALL:
-            self._set_auto_edit(True)
+            self._set_permission_mode_local("acceptEdits")
             return PermissionResultAllow()
         elif result.choice == PermissionChoice.ALLOW_SESSION:
             self.session_allowed_tools.add(tool_name)
@@ -781,12 +787,34 @@ class Agent:
             if self.observer:
                 self.observer.on_status_changed(self)
 
-    def _set_auto_edit(self, value: bool) -> None:
-        """Update auto_approve_edits and emit event."""
-        if self.auto_approve_edits != value:
-            self.auto_approve_edits = value
+    # Valid permission modes
+    PERMISSION_MODES = {"default", "acceptEdits", "plan"}
+
+    def _set_permission_mode_local(self, mode: str) -> None:
+        """Update permission mode locally without calling SDK.
+
+        Used when SDK already knows (e.g., EnterPlanMode/ExitPlanMode tools).
+        """
+        assert mode in self.PERMISSION_MODES, f"Invalid permission mode: {mode}"
+        if self.permission_mode != mode:
+            self.permission_mode = mode
             if self.observer:
-                self.observer.on_auto_edit_changed(self)
+                self.observer.on_permission_mode_changed(self)
+
+    async def set_permission_mode(self, mode: str) -> None:
+        """Update permission mode via SDK and emit event.
+
+        Args:
+            mode: One of 'default', 'acceptEdits', 'plan'
+        """
+        assert mode in self.PERMISSION_MODES, f"Invalid permission mode: {mode}"
+        if self.permission_mode != mode:
+            self.permission_mode = mode
+            # Only call SDK if connected (client exists and has active connection)
+            if self.client and self.session_id:
+                await self.client.set_permission_mode(mode)
+            if self.observer:
+                self.observer.on_permission_mode_changed(self)
 
     def _build_message_with_images(self, prompt: str) -> dict[str, Any]:
         """Build SDK message with text and images."""

@@ -395,22 +395,27 @@ async def test_todo_panel_updates():
 
 
 @pytest.mark.asyncio
-async def test_status_footer_auto_edit():
-    """Footer shows auto-edit state."""
+async def test_status_footer_permission_mode():
+    """Footer shows permission mode state."""
     app = WidgetTestApp(lambda: StatusFooter())
     async with app.run_test():
         footer = app.query_one(StatusFooter)
 
-        footer.auto_edit = False
-        label = footer.query_one("#auto-edit-label", Static)
+        footer.permission_mode = "default"
+        label = footer.query_one("#permission-mode-label", Static)
         rendered = label.render()
         assert hasattr(rendered, "plain")
-        assert "off" in rendered.plain.lower()  # type: ignore[union-attr]
+        assert "auto-edit: off" in rendered.plain.lower()  # type: ignore[union-attr]
 
-        footer.auto_edit = True
+        footer.permission_mode = "acceptEdits"
         rendered = label.render()
         assert hasattr(rendered, "plain")
-        assert "on" in rendered.plain.lower()  # type: ignore[union-attr]
+        assert "auto-edit: on" in rendered.plain.lower()  # type: ignore[union-attr]
+
+        footer.permission_mode = "plan"
+        rendered = label.render()
+        assert hasattr(rendered, "plain")
+        assert "plan mode" in rendered.plain.lower()  # type: ignore[union-attr]
 
 
 @pytest.mark.asyncio

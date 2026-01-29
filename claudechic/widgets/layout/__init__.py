@@ -15,7 +15,7 @@ from claudechic.widgets.layout.sidebar import (
     SessionItem,
 )
 from claudechic.widgets.layout.footer import (
-    AutoEditLabel,
+    PermissionModeLabel,
     ModelLabel,
     StatusFooter,
 )
@@ -43,7 +43,7 @@ __all__ = [
     "SidebarItem",
     "HamburgerButton",
     "SessionItem",
-    "AutoEditLabel",
+    "PermissionModeLabel",
     "ModelLabel",
     "StatusFooter",
     "IndicatorWidget",

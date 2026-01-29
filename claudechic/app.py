@@ -85,7 +85,11 @@ from claudechic.widgets import (
     EditPlanRequested,
     PendingShellWidget,
 )
-from claudechic.widgets.layout.footer import AutoEditLabel, ModelLabel, StatusFooter
+from claudechic.widgets.layout.footer import (
+    PermissionModeLabel,
+    ModelLabel,
+    StatusFooter,
+)
 from claudechic.widgets.prompts import ModelPrompt
 from claudechic.errors import setup_logging  # noqa: F401 - used at startup
 from claudechic.errors import set_notify_callback as set_log_notify_callback
@@ -497,18 +501,30 @@ class ChatApp(App):
                 self.input_container.remove_class("hidden")
 
     def action_cycle_permission_mode(self) -> None:
-        """Toggle auto-approve for Edit/Write tools for current agent."""
+        """Cycle permission mode: default -> acceptEdits -> plan -> default."""
         if self._agent:
-            self._agent._set_auto_edit(not self._agent.auto_approve_edits)
-            self.notify(
-                f"Auto-edit: {'ON' if self._agent.auto_approve_edits else 'OFF'}"
-            )
+            # Cycle through modes
+            agent = self._agent  # Capture for closure
+            modes = ["default", "acceptEdits", "plan"]
+            current = agent.permission_mode
+            next_idx = (modes.index(current) + 1) % len(modes)
+            next_mode = modes[next_idx]
 
-    def _update_footer_auto_edit(self) -> None:
-        """Update footer to reflect current agent's auto-edit state."""
+            # Schedule the async call
+            async def set_mode():
+                await agent.set_permission_mode(next_mode)
+
+            self.run_worker(set_mode(), exclusive=False)
+
+            # Show notification with friendly names
+            display = {"default": "Default", "acceptEdits": "Auto-edit", "plan": "Plan"}
+            self.notify(f"Mode: {display[next_mode]}")
+
+    def _update_footer_permission_mode(self) -> None:
+        """Update footer to reflect current agent's permission mode."""
         try:
-            self.status_footer.auto_edit = (
-                self._agent.auto_approve_edits if self._agent else False
+            self.status_footer.permission_mode = (
+                self._agent.permission_mode if self._agent else "default"
             )
         except Exception:
             pass  # Footer may not be mounted yet
@@ -1509,8 +1525,10 @@ class ChatApp(App):
         self._sidebar_overlay_open = not self._sidebar_overlay_open
         self._position_right_sidebar()
 
-    def on_auto_edit_label_toggled(self, event: AutoEditLabel.Toggled) -> None:
-        """Handle auto-edit label press - toggle auto-edit mode."""
+    def on_permission_mode_label_toggled(
+        self, event: PermissionModeLabel.Toggled
+    ) -> None:  # noqa: ARG002
+        """Handle permission mode label press - cycle through modes."""
         self.action_cycle_permission_mode()
 
     def on_model_label_model_change_requested(
@@ -1930,7 +1948,7 @@ class ChatApp(App):
                 pass
 
             # Update footer
-            self.status_footer.auto_edit = new_agent.auto_approve_edits
+            self.status_footer.permission_mode = new_agent.permission_mode
             self._update_footer_model(new_agent.model)
 
             # Update todo panel and context
@@ -1980,11 +1998,11 @@ class ChatApp(App):
         except Exception:
             log.debug(f"Failed to update sidebar status for agent {agent.id}")
 
-    def on_auto_edit_changed(self, agent: Agent) -> None:
-        """Handle auto-edit mode change."""
+    def on_permission_mode_changed(self, agent: Agent) -> None:
+        """Handle permission mode change."""
         # Only update footer if this is the active agent
         if self._agent and agent.id == self._agent.id:
-            self._update_footer_auto_edit()
+            self._update_footer_permission_mode()
 
     def on_message_updated(self, agent: Agent) -> None:  # noqa: ARG002
         """Handle agent message content update (unused - fine-grained callbacks used instead)."""

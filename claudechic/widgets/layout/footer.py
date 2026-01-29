@@ -14,11 +14,11 @@ from claudechic.processes import BackgroundProcess
 from claudechic.widgets.input.vi_mode import ViMode
 
 
-class AutoEditLabel(ClickableLabel):
-    """Clickable auto-edit status label."""
+class PermissionModeLabel(ClickableLabel):
+    """Clickable permission mode status label."""
 
     class Toggled(Message):
-        """Emitted when auto-edit is toggled."""
+        """Emitted when permission mode is toggled."""
 
     def on_click(self, event) -> None:
         self.post_message(self.Toggled())
@@ -96,7 +96,7 @@ class StatusFooter(Static):
     """Footer showing git branch, model, auto-edit status, and resource indicators."""
 
     can_focus = False
-    auto_edit = reactive(False)
+    permission_mode = reactive("default")  # default, acceptEdits, plan
     model = reactive("")
     branch = reactive("")
 
@@ -112,8 +112,8 @@ class StatusFooter(Static):
             yield ViModeLabel("", id="vi-mode-label", classes="hidden")
             yield ModelLabel("", id="model-label", classes="footer-label")
             yield Static("·", classes="footer-sep")
-            yield AutoEditLabel(
-                "Auto-edit: off", id="auto-edit-label", classes="footer-label"
+            yield PermissionModeLabel(
+                "Auto-edit: off", id="permission-mode-label", classes="footer-label"
             )
             yield Static("", id="footer-spacer")
             yield ProcessIndicator(id="process-indicator", classes="hidden")
@@ -131,11 +131,23 @@ class StatusFooter(Static):
         if label := self.query_one_optional("#model-label", ModelLabel):
             label.update(value if value else "")
 
-    def watch_auto_edit(self, value: bool) -> None:
-        """Update auto-edit label when setting changes."""
-        if label := self.query_one_optional("#auto-edit-label", AutoEditLabel):
-            label.update("Auto-edit: on" if value else "Auto-edit: off")
-            label.set_class(value, "active")
+    def watch_permission_mode(self, value: str) -> None:
+        """Update permission mode label when setting changes."""
+        if label := self.query_one_optional(
+            "#permission-mode-label", PermissionModeLabel
+        ):
+            if value == "plan":
+                label.update("Plan mode")
+                label.set_class(False, "active")
+                label.set_class(True, "plan-mode")
+            elif value == "acceptEdits":
+                label.update("Auto-edit: on")
+                label.set_class(True, "active")
+                label.set_class(False, "plan-mode")
+            else:  # default
+                label.update("Auto-edit: off")
+                label.set_class(False, "active")
+                label.set_class(False, "plan-mode")
 
     def update_processes(self, processes: list[BackgroundProcess]) -> None:
         """Update the process indicator."""

@@ -214,7 +214,7 @@ async for message in client.receive_response():
 - Ctrl+C (x2): Quit
 - Ctrl+L: Clear chat (UI only)
 - Ctrl+R: Reverse history search
-- Shift+Tab: Toggle auto-edit mode
+- Shift+Tab: Cycle permission mode (default → auto-edit → plan)
 - Ctrl+N: New agent (hint)
 - Ctrl+1-9: Switch to agent by position
 
