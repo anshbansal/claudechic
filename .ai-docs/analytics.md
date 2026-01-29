@@ -157,6 +157,23 @@ while url:
 - `e['properties']` - event-specific data plus `$session_id`
 - `e['id']` - unique PostHog event ID (use for deduplication)
 
+## Dashboard
+
+A Marimo dashboard for visualizing analytics data lives at `dashboard.py`:
+
+```bash
+POSTHOG_API_KEY=... uv run marimo run dashboard.py
+```
+
+Charts included:
+- New installs by engagement level (message count bins)
+- Versions in use per day
+- Daily active users
+- DAU by terminal and OS
+- Messages per user percentiles (p10/p50/p90)
+- Recent active users table (last 6 hours)
+- Errors table (last 24 hours)
+
 ## Testing
 
 Add debug logging temporarily:

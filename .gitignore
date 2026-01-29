@@ -20,3 +20,6 @@ uv.lock
 # Recordings
 *.cast
 .DS_Store
+
+# Marimo cache
+__marimo__/
