@@ -181,6 +181,8 @@ class ChatView(AutoHideScroll):
         Iterates over blocks in order to preserve text/tool interleaving.
         Returns (widgets, updated_tool_index).
         """
+        from claude_agent_sdk import ToolUseBlock
+
         widgets: list[Widget] = []
         pending_tools = self._agent.pending_tools if self._agent else {}
         for block in content.blocks:
@@ -189,6 +191,16 @@ class ChatView(AutoHideScroll):
                 msg.add_class("assistant-message")
                 widgets.append(msg)
             elif isinstance(block, ToolUse):
+                # Route nested tools to their parent TaskWidget
+                parent_id = block.parent_tool_use_id
+                if parent_id and parent_id in self._active_task_widgets:
+                    sdk_block = ToolUseBlock(
+                        id=block.id, name=block.name, input=block.input
+                    )
+                    self._active_task_widgets[parent_id].add_tool_use(sdk_block)
+                    tool_index += 1
+                    continue
+
                 collapse = tool_index < collapse_threshold
                 # Check if tool is still pending (no result yet)
                 completed = block.id not in pending_tools
@@ -198,6 +210,9 @@ class ChatView(AutoHideScroll):
                 # Track pending tools for result updates
                 if not completed:
                     self._pending_tool_widgets[block.id] = widget
+                    # Track active Task widgets for nested tool routing
+                    if isinstance(widget, TaskWidget):
+                        self._active_task_widgets[block.id] = widget
                 widgets.append(widget)
                 tool_index += 1
 
