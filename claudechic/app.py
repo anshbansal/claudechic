@@ -2291,7 +2291,9 @@ class ChatApp(App):
 
         block = ToolUseBlock(id=tool.id, name=tool.name, input=tool.input)
         self.post_message(
-            ToolUseMessage(block, parent_tool_use_id=None, agent_id=agent.id)
+            ToolUseMessage(
+                block, parent_tool_use_id=tool.parent_tool_use_id, agent_id=agent.id
+            )
         )
 
     def on_tool_result(self, agent: Agent, tool: ToolUse) -> None:
@@ -2302,7 +2304,9 @@ class ChatApp(App):
             tool_use_id=tool.id, content=tool.result or "", is_error=tool.is_error
         )
         self.post_message(
-            ToolResultMessage(block, parent_tool_use_id=None, agent_id=agent.id)
+            ToolResultMessage(
+                block, parent_tool_use_id=tool.parent_tool_use_id, agent_id=agent.id
+            )
         )
 
         # Show tool errors prominently in chat

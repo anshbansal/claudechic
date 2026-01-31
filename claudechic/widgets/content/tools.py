@@ -286,7 +286,7 @@ class TaskWidget(BaseToolWidget):
             while len(self._recent_tools) >= self.RECENT_EXPANDED:
                 old = self._recent_tools.pop(0)
                 old.collapse()
-            widget = ToolUseWidget(block, collapsed=False, cwd=self._cwd)
+            widget = ToolUseWidget(block, collapsed=True, cwd=self._cwd)
             self._pending_tools[block.id] = widget
             self._recent_tools.append(widget)
             content.mount(widget)

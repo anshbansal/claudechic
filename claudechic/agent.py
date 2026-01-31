@@ -75,6 +75,7 @@ class ToolUse:
     id: str
     name: str
     input: dict[str, Any]
+    parent_tool_use_id: str | None = None
     result: str | None = None
     is_error: bool = False
 
@@ -648,7 +649,7 @@ Key Rules:
 
     def _handle_tool_use(
         self, block: ToolUseBlock, parent_tool_use_id: str | None
-    ) -> None:  # noqa: ARG002
+    ) -> None:
         """Handle tool use start."""
         self._flush_current_text()
         self.response_had_tools = True
@@ -661,7 +662,12 @@ Key Rules:
                 self.observer.on_todos_updated(self)
             return
 
-        tool = ToolUse(id=block.id, name=block.name, input=block.input)
+        tool = ToolUse(
+            id=block.id,
+            name=block.name,
+            input=block.input,
+            parent_tool_use_id=parent_tool_use_id,
+        )
 
         # Track Task tools specially
         if block.name == ToolName.TASK:

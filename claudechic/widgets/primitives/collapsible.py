@@ -16,6 +16,8 @@ class QuietCollapsible(Collapsible):
     def _watch_collapsed(self, collapsed: bool) -> None:
         """Update collapsed state without auto-scrolling."""
         self._update_collapsed(collapsed)
+        # Add -expanded class for CSS targeting (Textual only has -collapsed)
+        self.set_class(not collapsed, "-expanded")
         # Post the appropriate message
         if collapsed:
             self.post_message(self.Collapsed(self))

@@ -206,6 +206,16 @@ TaskWidget #task-content {
     padding-left: 2;
 }
 
+/* Nested tool uses inside tasks start collapsed - hide contents by default */
+TaskWidget #task-content ToolUseWidget QuietCollapsible > Contents {
+    display: none;
+}
+
+/* Show contents when explicitly expanded */
+TaskWidget #task-content ToolUseWidget QuietCollapsible.-expanded > Contents {
+    display: block;
+}
+
 /* Shell output from ! commands */
 ShellOutputWidget {
     border-left: wide $warning;
