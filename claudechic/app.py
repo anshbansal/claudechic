@@ -1562,6 +1562,8 @@ class ChatApp(App):
         self._close_sidebar_overlay()
         if event.agent_id == self.active_agent_id:
             return
+        # Update sidebar immediately for responsive feel (before heavier switch work)
+        self.agent_section.set_active(event.agent_id)
         if self.agent_mgr:
             self.agent_mgr.switch(event.agent_id)
 
