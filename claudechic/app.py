@@ -657,6 +657,11 @@ class ChatApp(App):
         # Start CPU sampling profiler
         start_sampler()
 
+        # Preload shell executable cache in background
+        from claudechic.shell_complete import preload_executables
+
+        preload_executables()
+
         # Start background process polling
         self.set_interval(2.0, self._poll_background_processes)
 

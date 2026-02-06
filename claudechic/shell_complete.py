@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+import asyncio
 import os
 import sys
 from pathlib import Path
 
 # Cached executables from PATH
 _executable_cache: list[str] | None = None
+_executable_future: asyncio.Task[list[str]] | None = None
 
 # Windows executable extensions (from PATHEXT env var)
 _WINDOWS_EXE_EXTS = {".exe", ".cmd", ".bat", ".com", ".ps1"}
@@ -59,12 +61,44 @@ def get_executables() -> list[str]:
     return _executable_cache
 
 
+async def get_executables_async() -> list[str]:
+    """Get executables without blocking the event loop."""
+    global _executable_future
+    if _executable_cache is not None:
+        return _executable_cache
+    if _executable_future is None:
+        _executable_future = asyncio.get_running_loop().create_task(
+            asyncio.to_thread(get_executables)
+        )
+    return await _executable_future
+
+
+def preload_executables() -> None:
+    """Start loading executables in background. Call early at startup."""
+    global _executable_future
+    if _executable_cache is not None or _executable_future is not None:
+        return
+    try:
+        loop = asyncio.get_running_loop()
+        _executable_future = loop.create_task(asyncio.to_thread(get_executables))
+    except RuntimeError:
+        pass  # No event loop yet, will load on first use
+
+
 def complete_command(prefix: str, limit: int = 20) -> list[str]:
     """Complete a command name prefix."""
     prefix_lower = prefix.lower()
     executables = get_executables()
 
     # Prioritize exact prefix matches, then contains
+    exact = [e for e in executables if e.lower().startswith(prefix_lower)]
+    return exact[:limit]
+
+
+async def complete_command_async(prefix: str, limit: int = 20) -> list[str]:
+    """Complete a command name prefix without blocking the event loop."""
+    prefix_lower = prefix.lower()
+    executables = await get_executables_async()
     exact = [e for e in executables if e.lower().startswith(prefix_lower)]
     return exact[:limit]
 

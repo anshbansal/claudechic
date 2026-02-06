@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from dataclasses import dataclass
 from operator import itemgetter
 
@@ -18,7 +19,11 @@ from textual_autocomplete.fuzzy_search import FuzzySearch
 from rich.text import Text
 
 from claudechic.file_index import search_files
-from claudechic.shell_complete import complete_command, complete_path, parse_shell_input
+from claudechic.shell_complete import (
+    complete_command_async,
+    complete_path,
+    parse_shell_input,
+)
 
 
 @dataclass
@@ -256,7 +261,7 @@ class TextAreaAutoComplete(Widget):
         self._show_options(current_state)
 
     def _do_shell_search(self) -> None:
-        """Execute debounced shell completion search."""
+        """Execute debounced shell completion search (kicks off async)."""
         self._search_timer = None
         current_state = self._get_target_state()
         # Verify still in shell mode
@@ -266,7 +271,50 @@ class TextAreaAutoComplete(Widget):
         ):
             self.action_hide()
             return
-        self._show_options(current_state)
+        # Run async to avoid blocking on executable scan
+        self.run_worker(self._do_shell_search_async(current_state), exclusive=True)
+
+    async def _do_shell_search_async(self, state: TargetState) -> None:
+        """Async shell search - runs executable scan off main thread."""
+        text = (
+            state.text[: state.cursor_position]
+            if state.cursor_position > 0
+            else state.text
+        )
+        cmd, arg = parse_shell_input(text)
+
+        cwd = None
+        if hasattr(self.app, "_agent") and self.app._agent:  # type: ignore[attr-defined]
+            cwd = self.app._agent.cwd  # type: ignore[attr-defined]
+
+        if not cmd:
+            completions = await complete_command_async(arg, limit=20)
+            candidates = [DropdownItem(c, prefix="$ ") for c in completions]
+        else:
+            completions = await asyncio.to_thread(complete_path, arg, cwd, 20)
+            candidates = [DropdownItem(c, prefix="📄 ") for c in completions]
+
+        # Re-verify we're still in shell mode (user may have changed input)
+        current_state = self._get_target_state()
+        if not (
+            current_state.text.startswith("!")
+            or current_state.text.startswith("/shell ")
+        ):
+            self.action_hide()
+            return
+
+        option_list = self.option_list
+        option_list.clear_options()
+        if candidates:
+            option_list.add_options(list(reversed(candidates)))
+            option_list.highlighted = len(candidates) - 1
+
+        search = self._get_search_string(current_state)
+        if option_list.option_count > 0 and self._should_show(search):
+            self.action_show()
+            self.call_after_refresh(self._align_to_target)
+        else:
+            self.action_hide()
 
     def _show_options(self, state: TargetState) -> None:
         """Build and show options for current state."""
@@ -328,32 +376,8 @@ class TextAreaAutoComplete(Widget):
             return [DropdownItem(cmd, prefix="⚡ ") for cmd in self.slash_commands]
         elif self._mode == "path":
             return self._get_path_candidates(state)
-        elif self._mode == "shell":
-            return self._get_shell_candidates(state)
+        # Shell mode is handled async via _do_shell_search_async
         return []
-
-    def _get_shell_candidates(self, state: TargetState) -> list[DropdownItem]:
-        """Get shell completion candidates (commands or paths)."""
-        text = (
-            state.text[: state.cursor_position]
-            if state.cursor_position > 0
-            else state.text
-        )
-        cmd, arg = parse_shell_input(text)
-
-        # Get cwd from app's agent if available
-        cwd = None
-        if hasattr(self.app, "_agent") and self.app._agent:  # type: ignore[attr-defined]
-            cwd = self.app._agent.cwd  # type: ignore[attr-defined]
-
-        if not cmd:
-            # Still typing command name - complete from executables
-            completions = complete_command(arg, limit=20)
-            return [DropdownItem(c, prefix="$ ") for c in completions]
-        else:
-            # Typing argument - complete file paths
-            completions = complete_path(arg, cwd=cwd, limit=20)
-            return [DropdownItem(c, prefix="📄 ") for c in completions]
 
     def _get_path_candidates(self, state: TargetState) -> list[DropdownItem]:
         """Get file path candidates from index with fuzzy matching."""
