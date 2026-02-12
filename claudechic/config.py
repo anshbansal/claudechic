@@ -32,6 +32,8 @@ def _load() -> tuple[dict, bool]:
         config["analytics"].setdefault("id", "anonymous")
         config["analytics"].setdefault("enabled", True)
         config.setdefault("experimental", {})
+        config.setdefault("worktree", {})
+        config["worktree"].setdefault("path_template", None)
         # Migrate legacy vim key to vi-mode
         if "vim" in config:
             config["vi-mode"] = config.pop("vim")

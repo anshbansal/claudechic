@@ -212,22 +212,59 @@ def get_parent_branch(branch: str, cwd: Path | None = None) -> str | None:
     return best_branch
 
 
+def _expand_worktree_path(template: str, repo_name: str, feature_name: str) -> Path:
+    """Expand template variables in worktree path.
+
+    Supports:
+    - ${repo_name}: Repository name
+    - ${branch_name}: Feature/branch name
+    - ${feature_name}: Alias for branch_name
+    - $HOME: Home directory
+    - ~: Home directory (via expanduser)
+
+    Args:
+        template: Path template string with variables
+        repo_name: Name of the repository
+        feature_name: Name of the feature/branch
+
+    Returns:
+        Expanded Path object
+    """
+    expanded = (
+        template.replace("${repo_name}", repo_name)
+        .replace("${branch_name}", feature_name)
+        .replace("${feature_name}", feature_name)
+        .replace("$HOME", str(Path.home()))
+    )
+    return Path(expanded).expanduser()
+
+
 def start_worktree(feature_name: str) -> tuple[bool, str, Path | None]:
     """Create a worktree for the given feature.
 
     Returns (success, message, worktree_path).
     """
     try:
+        from claudechic.config import CONFIG
+
         repo_name = get_repo_name()
 
-        # Find main worktree to put new worktree next to it
-        main_wt = get_main_worktree()
-        if main_wt:
-            parent_dir = main_wt[0].parent
-        else:
-            parent_dir = Path.cwd().parent
+        # Check for custom path template
+        path_template = CONFIG.get("worktree", {}).get("path_template")
 
-        worktree_dir = parent_dir / f"{repo_name}-{feature_name}"
+        if path_template:
+            # Use custom template
+            worktree_dir = _expand_worktree_path(path_template, repo_name, feature_name)
+            # Create parent directories for custom paths
+            worktree_dir.parent.mkdir(parents=True, exist_ok=True)
+        else:
+            # Current behavior: sibling directories
+            main_wt = get_main_worktree()
+            if main_wt:
+                parent_dir = main_wt[0].parent
+            else:
+                parent_dir = Path.cwd().parent
+            worktree_dir = parent_dir / f"{repo_name}-{feature_name}"
 
         if worktree_dir.exists():
             return False, f"Directory {worktree_dir} already exists", None
