@@ -265,8 +265,6 @@ def start_worktree(feature_name: str) -> tuple[bool, str, Path | None]:
     """
     try:
         repo_name = get_repo_name()
-
-        # Check for custom path template
         path_template = CONFIG.get("worktree", {}).get("path_template")
 
         if path_template:
