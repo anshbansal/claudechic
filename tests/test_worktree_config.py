@@ -5,6 +5,8 @@ from unittest.mock import patch
 
 import pytest
 
+from claudechic.features.worktree.git import _expand_worktree_path, start_worktree
+
 
 class TestWorktreePathTemplate:
     """Test worktree path template expansion."""
@@ -20,8 +22,6 @@ class TestWorktreePathTemplate:
     )
     def test_template_variable_expansion(self, template, expected):
         """Test template variable expansion for various variables."""
-        from claudechic.features.worktree.git import _expand_worktree_path
-
         result = _expand_worktree_path(template, "my-repo", "test-feature")
         assert result == expected.resolve()
 
@@ -137,8 +137,6 @@ class TestStartWorktreeWithConfig:
         self, mock_config, mock_get_main, mock_get_repo, mock_run, tmp_path
     ):
         """Test that custom path template is used when configured."""
-        from claudechic.features.worktree.git import start_worktree
-
         mock_get_repo.return_value = "test-repo"
         mock_get_main.return_value = (Path("/original/test-repo"), "main")
 
@@ -168,8 +166,6 @@ class TestStartWorktreeWithConfig:
         self, mock_config, mock_get_main, mock_get_repo, mock_run, config_return
     ):
         """Test that sibling behavior is preserved when path_template is null or missing."""
-        from claudechic.features.worktree.git import start_worktree
-
         mock_get_repo.return_value = "test-repo"
         main_worktree_path = Path("/original/test-repo")
         mock_get_main.return_value = (main_worktree_path, "main")
@@ -190,8 +186,6 @@ class TestStartWorktreeWithConfig:
         self, mock_config, mock_get_main, mock_get_repo, mock_run, tmp_path
     ):
         """Test that parent directories are created for custom paths."""
-        from claudechic.features.worktree.git import start_worktree
-
         mock_get_repo.return_value = "test-repo"
         mock_get_main.return_value = (Path("/original/test-repo"), "main")
 
