@@ -241,15 +241,19 @@ def _expand_worktree_path(template: str, repo_name: str, feature_name: str) -> P
         .replace("${feature_name}", feature_name)
         .replace("$HOME", str(Path.home()))
     )
-    path = Path(expanded).expanduser().resolve()
 
-    # Validate path is absolute
+    # Check for path traversal patterns before normalization
+    if ".." in expanded:
+        raise ValueError(f"Worktree path contains path traversal pattern (..): {expanded}")
+
+    path = Path(expanded).expanduser()
+
+    # Validate path is absolute before resolving (resolve() would make relative paths absolute)
     if not path.is_absolute():
         raise ValueError(f"Worktree path template must expand to an absolute path, got: {path}")
 
-    # Check for path traversal patterns in the original expanded string
-    if ".." in expanded:
-        raise ValueError(f"Worktree path template contains path traversal pattern (..): {expanded}")
+    # Now resolve to normalize the path
+    path = path.resolve()
 
     return path
 
@@ -267,7 +271,10 @@ def start_worktree(feature_name: str) -> tuple[bool, str, Path | None]:
 
         if path_template:
             # Use custom template
-            worktree_dir = _expand_worktree_path(path_template, repo_name, feature_name)
+            try:
+                worktree_dir = _expand_worktree_path(path_template, repo_name, feature_name)
+            except ValueError as e:
+                return False, f"Invalid worktree path template: {e}", None
         else:
             # Current behavior: sibling directories
             main_wt = get_main_worktree()
@@ -280,7 +287,8 @@ def start_worktree(feature_name: str) -> tuple[bool, str, Path | None]:
         if worktree_dir.exists():
             return False, f"Directory {worktree_dir} already exists", None
 
-        # Create parent directories for custom paths (after existence check to avoid race condition)
+        # Create parent directories for custom paths
+        # Note: TOCTOU race possible between existence check and mkdir, but git worktree add will fail safely
         if path_template:
             worktree_dir.parent.mkdir(parents=True, exist_ok=True)
 

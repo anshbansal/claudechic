@@ -93,6 +93,50 @@ class TestWorktreePathTemplate:
         )
         assert result == Path("/tmp/my repo/test feature").resolve()
 
+    def test_rejects_path_traversal_in_feature_name(self):
+        """Test that path traversal in feature name is rejected."""
+        from claudechic.features.worktree.git import _expand_worktree_path
+
+        with pytest.raises(ValueError, match="path traversal"):
+            _expand_worktree_path(
+                "/tmp/${repo_name}/${feature_name}",
+                repo_name="my-repo",
+                feature_name="../../etc/passwd",
+            )
+
+    def test_rejects_path_traversal_in_repo_name(self):
+        """Test that path traversal in repo name is rejected."""
+        from claudechic.features.worktree.git import _expand_worktree_path
+
+        with pytest.raises(ValueError, match="path traversal"):
+            _expand_worktree_path(
+                "/tmp/${repo_name}/${feature_name}",
+                repo_name="../../../etc",
+                feature_name="test-feature",
+            )
+
+    def test_rejects_relative_path_template(self):
+        """Test that relative path templates are rejected."""
+        from claudechic.features.worktree.git import _expand_worktree_path
+
+        with pytest.raises(ValueError, match="absolute path"):
+            _expand_worktree_path(
+                "relative/path/${feature_name}",
+                repo_name="my-repo",
+                feature_name="test-feature",
+            )
+
+    def test_rejects_path_traversal_in_template(self):
+        """Test that path traversal in template itself is rejected."""
+        from claudechic.features.worktree.git import _expand_worktree_path
+
+        with pytest.raises(ValueError, match="path traversal"):
+            _expand_worktree_path(
+                "/tmp/../../../etc/${feature_name}",
+                repo_name="my-repo",
+                feature_name="test-feature",
+            )
+
 
 class TestStartWorktreeWithConfig:
     """Test start_worktree() with path_template config."""
