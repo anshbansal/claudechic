@@ -238,6 +238,28 @@ Agent status indicators: ○ (idle), ● gray (busy), ● orange (needs input)
 - `/shell <cmd>` - Suspend TUI and run shell command
 - `/exit` - Quit
 
+## Configuration
+
+Configuration is stored in `~/.claude/.claudechic.yaml`.
+
+### Worktree Path Templates
+
+Customize worktree locations in `~/.claude/.claudechic.yaml` using template variables:
+
+```yaml
+worktree:
+  path_template: "$HOME/code/worktrees/${repo_name}/${branch_name}"
+```
+
+**Variables:** `${repo_name}`, `${branch_name}`, `$HOME`, `~`
+
+**Common patterns:**
+```yaml
+path_template: "$HOME/code/worktrees/${repo_name}/${branch_name}"  # By repo/branch
+path_template: "$HOME/worktrees/${repo_name}-${branch_name}"       # Flat structure
+path_template: null                                                # Sibling dirs (default)
+```
+
 ## Testing
 
 ```bash

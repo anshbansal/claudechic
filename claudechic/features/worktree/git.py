@@ -5,6 +5,8 @@ from dataclasses import dataclass, field
 from enum import Enum, auto
 from pathlib import Path
 
+from claudechic.config import CONFIG
+
 
 class FinishPhase(Enum):
     """Phases of the /worktree finish process."""
@@ -212,6 +214,48 @@ def get_parent_branch(branch: str, cwd: Path | None = None) -> str | None:
     return best_branch
 
 
+def _expand_worktree_path(template: str, repo_name: str, feature_name: str) -> Path:
+    """Expand template variables in worktree path.
+
+    Supports:
+    - ${repo_name}: Repository name
+    - ${branch_name}: Feature/branch name
+    - $HOME: Home directory
+    - ~: Home directory (via expanduser)
+
+    Args:
+        template: Path template string with variables
+        repo_name: Name of the repository
+        feature_name: Name of the feature/branch
+
+    Returns:
+        Expanded Path object
+
+    Raises:
+        ValueError: If expanded path is not absolute or contains path traversal patterns
+    """
+    if not repo_name or not repo_name.strip():
+        raise ValueError("Repository name cannot be empty")
+    if not feature_name or not feature_name.strip():
+        raise ValueError("Feature name cannot be empty")
+
+    expanded = (
+        template.replace("${repo_name}", repo_name)
+        .replace("${branch_name}", feature_name)
+        .replace("$HOME", str(Path.home()))
+    )
+
+    path = Path(expanded).expanduser()
+
+    if ".." in path.parts:
+        raise ValueError(f"Worktree path contains path traversal component: {path}")
+
+    if not path.is_absolute():
+        raise ValueError(f"Worktree path template must expand to an absolute path, got: {path}")
+
+    return path.resolve()
+
+
 def start_worktree(feature_name: str) -> tuple[bool, str, Path | None]:
     """Create a worktree for the given feature.
 
@@ -219,20 +263,25 @@ def start_worktree(feature_name: str) -> tuple[bool, str, Path | None]:
     """
     try:
         repo_name = get_repo_name()
+        path_template = CONFIG.get("worktree", {}).get("path_template")
 
-        # Find main worktree to put new worktree next to it
-        main_wt = get_main_worktree()
-        if main_wt:
-            parent_dir = main_wt[0].parent
+        if path_template:
+            try:
+                worktree_dir = _expand_worktree_path(path_template, repo_name, feature_name)
+                worktree_dir.parent.mkdir(parents=True, exist_ok=True)
+            except ValueError as e:
+                return False, str(e), None
         else:
-            parent_dir = Path.cwd().parent
-
-        worktree_dir = parent_dir / f"{repo_name}-{feature_name}"
+            main_wt = get_main_worktree()
+            if main_wt:
+                parent_dir = main_wt[0].parent
+            else:
+                parent_dir = Path.cwd().parent
+            worktree_dir = parent_dir / f"{repo_name}-{feature_name}"
 
         if worktree_dir.exists():
             return False, f"Directory {worktree_dir} already exists", None
 
-        # Create the worktree with a new branch
         subprocess.run(
             ["git", "worktree", "add", "-b", feature_name, str(worktree_dir), "HEAD"],
             check=True,
