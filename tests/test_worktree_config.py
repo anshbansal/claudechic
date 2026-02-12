@@ -8,6 +8,23 @@ import pytest
 from claudechic.features.worktree.git import _expand_worktree_path, start_worktree
 
 
+@pytest.fixture
+def mock_worktree_deps():
+    """Mock all external dependencies for start_worktree tests."""
+    with (
+        patch("claudechic.features.worktree.git.CONFIG") as mock_config,
+        patch("claudechic.features.worktree.git.get_main_worktree") as mock_get_main,
+        patch("claudechic.features.worktree.git.get_repo_name") as mock_get_repo,
+        patch("claudechic.features.worktree.git.subprocess.run") as mock_run,
+    ):
+        yield {
+            "config": mock_config,
+            "get_main": mock_get_main,
+            "get_repo": mock_get_repo,
+            "run": mock_run,
+        }
+
+
 class TestWorktreePathTemplate:
     """Test worktree path template expansion."""
 
@@ -27,8 +44,6 @@ class TestWorktreePathTemplate:
 
     def test_expand_template_combined(self):
         """Test combined template with multiple variables."""
-        from claudechic.features.worktree.git import _expand_worktree_path
-
         result = _expand_worktree_path(
             "$HOME/code/worktrees/${repo_name}/${branch_name}",
             repo_name="my-repo",
@@ -39,8 +54,6 @@ class TestWorktreePathTemplate:
 
     def test_expand_template_with_spaces_in_names(self):
         """Test handling of spaces in repo/branch names."""
-        from claudechic.features.worktree.git import _expand_worktree_path
-
         result = _expand_worktree_path(
             "/tmp/${repo_name}/${branch_name}",
             repo_name="my repo",
@@ -50,8 +63,6 @@ class TestWorktreePathTemplate:
 
     def test_rejects_path_traversal_in_feature_name(self):
         """Test that path traversal in feature name is rejected."""
-        from claudechic.features.worktree.git import _expand_worktree_path
-
         with pytest.raises(ValueError, match="path traversal"):
             _expand_worktree_path(
                 "/tmp/${repo_name}/${branch_name}",
@@ -61,8 +72,6 @@ class TestWorktreePathTemplate:
 
     def test_rejects_path_traversal_in_repo_name(self):
         """Test that path traversal in repo name is rejected."""
-        from claudechic.features.worktree.git import _expand_worktree_path
-
         with pytest.raises(ValueError, match="path traversal"):
             _expand_worktree_path(
                 "/tmp/${repo_name}/${branch_name}",
@@ -72,8 +81,6 @@ class TestWorktreePathTemplate:
 
     def test_rejects_relative_path_template(self):
         """Test that relative path templates are rejected."""
-        from claudechic.features.worktree.git import _expand_worktree_path
-
         with pytest.raises(ValueError, match="absolute path"):
             _expand_worktree_path(
                 "relative/path/${branch_name}",
@@ -83,8 +90,6 @@ class TestWorktreePathTemplate:
 
     def test_rejects_path_traversal_in_template(self):
         """Test that path traversal in template itself is rejected."""
-        from claudechic.features.worktree.git import _expand_worktree_path
-
         with pytest.raises(ValueError, match="path traversal"):
             _expand_worktree_path(
                 "/tmp/../../../etc/${branch_name}",
@@ -94,8 +99,6 @@ class TestWorktreePathTemplate:
 
     def test_rejects_empty_repo_name(self):
         """Test that empty repository name is rejected."""
-        from claudechic.features.worktree.git import _expand_worktree_path
-
         with pytest.raises(ValueError, match="Repository name cannot be empty"):
             _expand_worktree_path(
                 "/tmp/${repo_name}/${branch_name}",
@@ -105,8 +108,6 @@ class TestWorktreePathTemplate:
 
     def test_rejects_empty_feature_name(self):
         """Test that empty feature name is rejected."""
-        from claudechic.features.worktree.git import _expand_worktree_path
-
         with pytest.raises(ValueError, match="Feature name cannot be empty"):
             _expand_worktree_path(
                 "/tmp/${repo_name}/${branch_name}",
@@ -116,8 +117,6 @@ class TestWorktreePathTemplate:
 
     def test_rejects_whitespace_only_repo_name(self):
         """Test that whitespace-only repository name is rejected."""
-        from claudechic.features.worktree.git import _expand_worktree_path
-
         with pytest.raises(ValueError, match="Repository name cannot be empty"):
             _expand_worktree_path(
                 "/tmp/${repo_name}/${branch_name}",
@@ -129,19 +128,14 @@ class TestWorktreePathTemplate:
 class TestStartWorktreeWithConfig:
     """Test start_worktree() with path_template config."""
 
-    @patch("claudechic.features.worktree.git.subprocess.run")
-    @patch("claudechic.features.worktree.git.get_repo_name")
-    @patch("claudechic.features.worktree.git.get_main_worktree")
-    @patch("claudechic.features.worktree.git.CONFIG")
-    def test_uses_custom_template_when_configured(
-        self, mock_config, mock_get_main, mock_get_repo, mock_run, tmp_path
-    ):
+    def test_uses_custom_template_when_configured(self, mock_worktree_deps, tmp_path):
         """Test that custom path template is used when configured."""
-        mock_get_repo.return_value = "test-repo"
-        mock_get_main.return_value = (Path("/original/test-repo"), "main")
+        mocks = mock_worktree_deps
+        mocks["get_repo"].return_value = "test-repo"
+        mocks["get_main"].return_value = (Path("/original/test-repo"), "main")
 
         template = f"{tmp_path}/worktrees/${{repo_name}}/${{branch_name}}"
-        mock_config.get.return_value = {"path_template": template}
+        mocks["config"].get.return_value = {"path_template": template}
 
         success, message, path = start_worktree("test-feature")
 
@@ -149,7 +143,7 @@ class TestStartWorktreeWithConfig:
         assert success
         assert path == expected_path
         assert "Created worktree at" in message
-        mock_run.assert_called_once()
+        mocks["run"].assert_called_once()
 
     @pytest.mark.parametrize(
         "config_return",
@@ -158,39 +152,29 @@ class TestStartWorktreeWithConfig:
             {},
         ],
     )
-    @patch("claudechic.features.worktree.git.subprocess.run")
-    @patch("claudechic.features.worktree.git.get_repo_name")
-    @patch("claudechic.features.worktree.git.get_main_worktree")
-    @patch("claudechic.features.worktree.git.CONFIG")
-    def test_uses_sibling_behavior_when_no_template(
-        self, mock_config, mock_get_main, mock_get_repo, mock_run, config_return
-    ):
+    def test_uses_sibling_behavior_when_no_template(self, mock_worktree_deps, config_return):
         """Test that sibling behavior is preserved when path_template is null or missing."""
-        mock_get_repo.return_value = "test-repo"
+        mocks = mock_worktree_deps
+        mocks["get_repo"].return_value = "test-repo"
         main_worktree_path = Path("/original/test-repo")
-        mock_get_main.return_value = (main_worktree_path, "main")
-        mock_config.get.return_value = config_return
+        mocks["get_main"].return_value = (main_worktree_path, "main")
+        mocks["config"].get.return_value = config_return
 
         success, message, path = start_worktree("test-feature")
 
         expected_path = Path("/original/test-repo-test-feature")
         assert success, f"Expected success but got failure: {message}"
         assert path == expected_path
-        mock_run.assert_called_once()
+        mocks["run"].assert_called_once()
 
-    @patch("claudechic.features.worktree.git.subprocess.run")
-    @patch("claudechic.features.worktree.git.get_repo_name")
-    @patch("claudechic.features.worktree.git.get_main_worktree")
-    @patch("claudechic.features.worktree.git.CONFIG")
-    def test_creates_parent_directories_for_custom_path(
-        self, mock_config, mock_get_main, mock_get_repo, mock_run, tmp_path
-    ):
+    def test_creates_parent_directories_for_custom_path(self, mock_worktree_deps, tmp_path):
         """Test that parent directories are created for custom paths."""
-        mock_get_repo.return_value = "test-repo"
-        mock_get_main.return_value = (Path("/original/test-repo"), "main")
+        mocks = mock_worktree_deps
+        mocks["get_repo"].return_value = "test-repo"
+        mocks["get_main"].return_value = (Path("/original/test-repo"), "main")
 
         template = f"{tmp_path}/deep/nested/path/${{repo_name}}/${{branch_name}}"
-        mock_config.get.return_value = {"path_template": template}
+        mocks["config"].get.return_value = {"path_template": template}
 
         success, message, path = start_worktree("test-feature")
 
