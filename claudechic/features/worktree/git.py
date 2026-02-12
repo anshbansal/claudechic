@@ -5,6 +5,8 @@ from dataclasses import dataclass, field
 from enum import Enum, auto
 from pathlib import Path
 
+from claudechic.config import CONFIG
+
 
 class FinishPhase(Enum):
     """Phases of the /worktree finish process."""
@@ -229,6 +231,9 @@ def _expand_worktree_path(template: str, repo_name: str, feature_name: str) -> P
 
     Returns:
         Expanded Path object
+
+    Raises:
+        ValueError: If expanded path is not absolute or contains path traversal patterns
     """
     expanded = (
         template.replace("${repo_name}", repo_name)
@@ -236,7 +241,17 @@ def _expand_worktree_path(template: str, repo_name: str, feature_name: str) -> P
         .replace("${feature_name}", feature_name)
         .replace("$HOME", str(Path.home()))
     )
-    return Path(expanded).expanduser()
+    path = Path(expanded).expanduser().resolve()
+
+    # Validate path is absolute
+    if not path.is_absolute():
+        raise ValueError(f"Worktree path template must expand to an absolute path, got: {path}")
+
+    # Check for path traversal patterns in the original expanded string
+    if ".." in expanded:
+        raise ValueError(f"Worktree path template contains path traversal pattern (..): {expanded}")
+
+    return path
 
 
 def start_worktree(feature_name: str) -> tuple[bool, str, Path | None]:
@@ -245,8 +260,6 @@ def start_worktree(feature_name: str) -> tuple[bool, str, Path | None]:
     Returns (success, message, worktree_path).
     """
     try:
-        from claudechic.config import CONFIG
-
         repo_name = get_repo_name()
 
         # Check for custom path template
@@ -255,8 +268,6 @@ def start_worktree(feature_name: str) -> tuple[bool, str, Path | None]:
         if path_template:
             # Use custom template
             worktree_dir = _expand_worktree_path(path_template, repo_name, feature_name)
-            # Create parent directories for custom paths
-            worktree_dir.parent.mkdir(parents=True, exist_ok=True)
         else:
             # Current behavior: sibling directories
             main_wt = get_main_worktree()
@@ -268,6 +279,10 @@ def start_worktree(feature_name: str) -> tuple[bool, str, Path | None]:
 
         if worktree_dir.exists():
             return False, f"Directory {worktree_dir} already exists", None
+
+        # Create parent directories for custom paths (after existence check to avoid race condition)
+        if path_template:
+            worktree_dir.parent.mkdir(parents=True, exist_ok=True)
 
         # Create the worktree with a new branch
         subprocess.run(

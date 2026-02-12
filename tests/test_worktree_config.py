@@ -24,7 +24,7 @@ class TestWorktreePathTemplate:
             repo_name="my-repo",
             feature_name="test-feature",
         )
-        assert result == Path("/tmp/worktrees/my-repo")
+        assert result == Path("/tmp/worktrees/my-repo").resolve()
 
     def test_expand_template_with_branch_name(self):
         """Test ${branch_name} variable expansion."""
@@ -35,7 +35,7 @@ class TestWorktreePathTemplate:
             repo_name="my-repo",
             feature_name="test-feature",
         )
-        assert result == Path("/tmp/worktrees/test-feature")
+        assert result == Path("/tmp/worktrees/test-feature").resolve()
 
     def test_expand_template_with_feature_name(self):
         """Test ${feature_name} alias expansion."""
@@ -46,7 +46,7 @@ class TestWorktreePathTemplate:
             repo_name="my-repo",
             feature_name="test-feature",
         )
-        assert result == Path("/tmp/worktrees/test-feature")
+        assert result == Path("/tmp/worktrees/test-feature").resolve()
 
     def test_expand_template_with_home(self):
         """Test $HOME variable expansion."""
@@ -91,7 +91,7 @@ class TestWorktreePathTemplate:
             repo_name="my repo",
             feature_name="test feature",
         )
-        assert result == Path("/tmp/my repo/test feature")
+        assert result == Path("/tmp/my repo/test feature").resolve()
 
 
 class TestStartWorktreeWithConfig:
@@ -100,8 +100,9 @@ class TestStartWorktreeWithConfig:
     @patch("claudechic.features.worktree.git.subprocess.run")
     @patch("claudechic.features.worktree.git.get_repo_name")
     @patch("claudechic.features.worktree.git.get_main_worktree")
+    @patch("claudechic.features.worktree.git.CONFIG")
     def test_uses_custom_template_when_configured(
-        self, mock_get_main, mock_get_repo, mock_run, tmp_path
+        self, mock_config, mock_get_main, mock_get_repo, mock_run, tmp_path
     ):
         """Test that custom path template is used when configured."""
         from claudechic.features.worktree.git import start_worktree
@@ -111,11 +112,11 @@ class TestStartWorktreeWithConfig:
 
         # Use tmp_path for testing
         template = f"{tmp_path}/worktrees/${{repo_name}}/${{branch_name}}"
+        mock_config.get.return_value = {"path_template": template}
 
-        with patch("claudechic.config.CONFIG", {"worktree": {"path_template": template}}):
-            success, message, path = start_worktree("test-feature")
+        success, message, path = start_worktree("test-feature")
 
-        expected_path = tmp_path / "worktrees" / "test-repo" / "test-feature"
+        expected_path = (tmp_path / "worktrees" / "test-repo" / "test-feature").resolve()
         assert success
         assert path == expected_path
         assert "Created worktree at" in message
@@ -124,8 +125,9 @@ class TestStartWorktreeWithConfig:
     @patch("claudechic.features.worktree.git.subprocess.run")
     @patch("claudechic.features.worktree.git.get_repo_name")
     @patch("claudechic.features.worktree.git.get_main_worktree")
+    @patch("claudechic.features.worktree.git.CONFIG")
     def test_uses_sibling_behavior_when_template_is_null(
-        self, mock_get_main, mock_get_repo, mock_run
+        self, mock_config, mock_get_main, mock_get_repo, mock_run
     ):
         """Test that sibling behavior is preserved when path_template is null."""
         from claudechic.features.worktree.git import start_worktree
@@ -133,9 +135,9 @@ class TestStartWorktreeWithConfig:
         mock_get_repo.return_value = "test-repo"
         main_worktree_path = Path("/original/test-repo")
         mock_get_main.return_value = (main_worktree_path, "main")
+        mock_config.get.return_value = {"path_template": None}
 
-        with patch("claudechic.config.CONFIG", {"worktree": {"path_template": None}}):
-            success, message, path = start_worktree("test-feature")
+        success, message, path = start_worktree("test-feature")
 
         expected_path = Path("/original/test-repo-test-feature")
         if not success:
@@ -147,8 +149,9 @@ class TestStartWorktreeWithConfig:
     @patch("claudechic.features.worktree.git.subprocess.run")
     @patch("claudechic.features.worktree.git.get_repo_name")
     @patch("claudechic.features.worktree.git.get_main_worktree")
+    @patch("claudechic.features.worktree.git.CONFIG")
     def test_uses_sibling_behavior_when_config_missing(
-        self, mock_get_main, mock_get_repo, mock_run
+        self, mock_config, mock_get_main, mock_get_repo, mock_run
     ):
         """Test that sibling behavior is preserved when worktree config is missing."""
         from claudechic.features.worktree.git import start_worktree
@@ -156,9 +159,9 @@ class TestStartWorktreeWithConfig:
         mock_get_repo.return_value = "test-repo"
         main_worktree_path = Path("/original/test-repo")
         mock_get_main.return_value = (main_worktree_path, "main")
+        mock_config.get.return_value = {}
 
-        with patch("claudechic.config.CONFIG", {}):
-            success, message, path = start_worktree("test-feature")
+        success, message, path = start_worktree("test-feature")
 
         expected_path = Path("/original/test-repo-test-feature")
         assert success
@@ -168,8 +171,9 @@ class TestStartWorktreeWithConfig:
     @patch("claudechic.features.worktree.git.subprocess.run")
     @patch("claudechic.features.worktree.git.get_repo_name")
     @patch("claudechic.features.worktree.git.get_main_worktree")
+    @patch("claudechic.features.worktree.git.CONFIG")
     def test_creates_parent_directories_for_custom_path(
-        self, mock_get_main, mock_get_repo, mock_run, tmp_path
+        self, mock_config, mock_get_main, mock_get_repo, mock_run, tmp_path
     ):
         """Test that parent directories are created for custom paths."""
         from claudechic.features.worktree.git import start_worktree
@@ -179,11 +183,11 @@ class TestStartWorktreeWithConfig:
 
         # Use a nested path that doesn't exist
         template = f"{tmp_path}/deep/nested/path/${{repo_name}}/${{branch_name}}"
+        mock_config.get.return_value = {"path_template": template}
 
-        with patch("claudechic.config.CONFIG", {"worktree": {"path_template": template}}):
-            success, message, path = start_worktree("test-feature")
+        success, message, path = start_worktree("test-feature")
 
-        expected_path = tmp_path / "deep" / "nested" / "path" / "test-repo" / "test-feature"
+        expected_path = (tmp_path / "deep" / "nested" / "path" / "test-repo" / "test-feature").resolve()
         assert success
         assert path == expected_path
         # Verify parent directories were created
