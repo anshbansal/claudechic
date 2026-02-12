@@ -137,6 +137,39 @@ class TestWorktreePathTemplate:
                 feature_name="test-feature",
             )
 
+    def test_rejects_empty_repo_name(self):
+        """Test that empty repository name is rejected."""
+        from claudechic.features.worktree.git import _expand_worktree_path
+
+        with pytest.raises(ValueError, match="Repository name cannot be empty"):
+            _expand_worktree_path(
+                "/tmp/${repo_name}/${feature_name}",
+                repo_name="",
+                feature_name="test-feature",
+            )
+
+    def test_rejects_empty_feature_name(self):
+        """Test that empty feature name is rejected."""
+        from claudechic.features.worktree.git import _expand_worktree_path
+
+        with pytest.raises(ValueError, match="Feature name cannot be empty"):
+            _expand_worktree_path(
+                "/tmp/${repo_name}/${feature_name}",
+                repo_name="my-repo",
+                feature_name="",
+            )
+
+    def test_rejects_whitespace_only_repo_name(self):
+        """Test that whitespace-only repository name is rejected."""
+        from claudechic.features.worktree.git import _expand_worktree_path
+
+        with pytest.raises(ValueError, match="Repository name cannot be empty"):
+            _expand_worktree_path(
+                "/tmp/${repo_name}/${feature_name}",
+                repo_name="   ",
+                feature_name="test-feature",
+            )
+
 
 class TestStartWorktreeWithConfig:
     """Test start_worktree() with path_template config."""

@@ -235,6 +235,12 @@ def _expand_worktree_path(template: str, repo_name: str, feature_name: str) -> P
     Raises:
         ValueError: If expanded path is not absolute or contains path traversal patterns
     """
+    # Validate inputs are non-empty
+    if not repo_name or not repo_name.strip():
+        raise ValueError("Repository name cannot be empty")
+    if not feature_name or not feature_name.strip():
+        raise ValueError("Feature name cannot be empty")
+
     expanded = (
         template.replace("${repo_name}", repo_name)
         .replace("${branch_name}", feature_name)
@@ -242,11 +248,11 @@ def _expand_worktree_path(template: str, repo_name: str, feature_name: str) -> P
         .replace("$HOME", str(Path.home()))
     )
 
-    # Check for path traversal patterns before normalization
-    if ".." in expanded:
-        raise ValueError(f"Worktree path contains path traversal pattern (..): {expanded}")
-
     path = Path(expanded).expanduser()
+
+    # Check for path traversal in normalized components (after expanduser, before resolve)
+    if ".." in path.parts:
+        raise ValueError(f"Worktree path contains path traversal component: {path}")
 
     # Validate path is absolute before resolving (resolve() would make relative paths absolute)
     if not path.is_absolute():
@@ -274,7 +280,7 @@ def start_worktree(feature_name: str) -> tuple[bool, str, Path | None]:
             try:
                 worktree_dir = _expand_worktree_path(path_template, repo_name, feature_name)
             except ValueError as e:
-                return False, f"Invalid worktree path template: {e}", None
+                return False, str(e), None
         else:
             # Current behavior: sibling directories
             main_wt = get_main_worktree()
