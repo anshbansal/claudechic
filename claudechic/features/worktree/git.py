@@ -220,7 +220,6 @@ def _expand_worktree_path(template: str, repo_name: str, feature_name: str) -> P
     Supports:
     - ${repo_name}: Repository name
     - ${branch_name}: Feature/branch name
-    - ${feature_name}: Alias for branch_name
     - $HOME: Home directory
     - ~: Home directory (via expanduser)
 
@@ -243,7 +242,6 @@ def _expand_worktree_path(template: str, repo_name: str, feature_name: str) -> P
     expanded = (
         template.replace("${repo_name}", repo_name)
         .replace("${branch_name}", feature_name)
-        .replace("${feature_name}", feature_name)
         .replace("$HOME", str(Path.home()))
     )
 
@@ -270,6 +268,7 @@ def start_worktree(feature_name: str) -> tuple[bool, str, Path | None]:
         if path_template:
             try:
                 worktree_dir = _expand_worktree_path(path_template, repo_name, feature_name)
+                worktree_dir.parent.mkdir(parents=True, exist_ok=True)
             except ValueError as e:
                 return False, str(e), None
         else:
@@ -282,9 +281,6 @@ def start_worktree(feature_name: str) -> tuple[bool, str, Path | None]:
 
         if worktree_dir.exists():
             return False, f"Directory {worktree_dir} already exists", None
-
-        if path_template:
-            worktree_dir.parent.mkdir(parents=True, exist_ok=True)
 
         subprocess.run(
             ["git", "worktree", "add", "-b", feature_name, str(worktree_dir), "HEAD"],

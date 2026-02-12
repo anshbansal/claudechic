@@ -244,36 +244,21 @@ Configuration is stored in `~/.claude/.claudechic.yaml`.
 
 ### Worktree Path Templates
 
-Customize where git worktrees are created by setting a path template:
+Customize worktree locations in `~/.claude/.claudechic.yaml` using template variables:
 
 ```yaml
 worktree:
   path_template: "$HOME/code/worktrees/${repo_name}/${branch_name}"
 ```
 
-**Template Variables:**
-- `${repo_name}` - Repository name (e.g., "claudechic")
-- `${branch_name}` - Feature branch name (e.g., "add-auth")
-- `${feature_name}` - Alias for `${branch_name}`
-- `$HOME` or `~` - Home directory
+**Variables:** `${repo_name}`, `${branch_name}`, `$HOME`, `~`
 
-**Example configurations:**
-
+**Common patterns:**
 ```yaml
-# Organized by repo and branch
-worktree:
-  path_template: "$HOME/code/worktrees/${repo_name}/${branch_name}"
-
-# Flat structure in a dedicated directory
-worktree:
-  path_template: "$HOME/worktrees/${repo_name}-${branch_name}"
-
-# Default behavior (sibling directories)
-worktree:
-  path_template: null
+path_template: "$HOME/code/worktrees/${repo_name}/${branch_name}"  # By repo/branch
+path_template: "$HOME/worktrees/${repo_name}-${branch_name}"       # Flat structure
+path_template: null                                                # Sibling dirs (default)
 ```
-
-When `path_template` is `null` or not specified, worktrees are created as siblings to the main repository (e.g., `/repo` → `/repo-feature`).
 
 ## Testing
 

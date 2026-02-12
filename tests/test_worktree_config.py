@@ -6,69 +6,24 @@ from unittest.mock import patch
 import pytest
 
 
-@pytest.fixture
-def mock_config():
-    """Fixture to mock CONFIG dictionary."""
-    return {}
-
-
 class TestWorktreePathTemplate:
     """Test worktree path template expansion."""
 
-    def test_expand_template_with_repo_name(self):
-        """Test ${repo_name} variable expansion."""
+    @pytest.mark.parametrize(
+        "template,expected",
+        [
+            ("/tmp/worktrees/${repo_name}", Path("/tmp/worktrees/my-repo")),
+            ("/tmp/worktrees/${branch_name}", Path("/tmp/worktrees/test-feature")),
+            ("$HOME/worktrees/test", Path.home() / "worktrees" / "test"),
+            ("~/worktrees/test", Path.home() / "worktrees" / "test"),
+        ],
+    )
+    def test_template_variable_expansion(self, template, expected):
+        """Test template variable expansion for various variables."""
         from claudechic.features.worktree.git import _expand_worktree_path
 
-        result = _expand_worktree_path(
-            "/tmp/worktrees/${repo_name}",
-            repo_name="my-repo",
-            feature_name="test-feature",
-        )
-        assert result == Path("/tmp/worktrees/my-repo").resolve()
-
-    def test_expand_template_with_branch_name(self):
-        """Test ${branch_name} variable expansion."""
-        from claudechic.features.worktree.git import _expand_worktree_path
-
-        result = _expand_worktree_path(
-            "/tmp/worktrees/${branch_name}",
-            repo_name="my-repo",
-            feature_name="test-feature",
-        )
-        assert result == Path("/tmp/worktrees/test-feature").resolve()
-
-    def test_expand_template_with_feature_name(self):
-        """Test ${feature_name} alias expansion."""
-        from claudechic.features.worktree.git import _expand_worktree_path
-
-        result = _expand_worktree_path(
-            "/tmp/worktrees/${feature_name}",
-            repo_name="my-repo",
-            feature_name="test-feature",
-        )
-        assert result == Path("/tmp/worktrees/test-feature").resolve()
-
-    def test_expand_template_with_home(self):
-        """Test $HOME variable expansion."""
-        from claudechic.features.worktree.git import _expand_worktree_path
-
-        result = _expand_worktree_path(
-            "$HOME/worktrees/test",
-            repo_name="my-repo",
-            feature_name="test-feature",
-        )
-        assert result == Path.home() / "worktrees" / "test"
-
-    def test_expand_template_with_tilde(self):
-        """Test ~ expansion."""
-        from claudechic.features.worktree.git import _expand_worktree_path
-
-        result = _expand_worktree_path(
-            "~/worktrees/test",
-            repo_name="my-repo",
-            feature_name="test-feature",
-        )
-        assert result == Path.home() / "worktrees" / "test"
+        result = _expand_worktree_path(template, "my-repo", "test-feature")
+        assert result == expected.resolve()
 
     def test_expand_template_combined(self):
         """Test combined template with multiple variables."""
@@ -99,7 +54,7 @@ class TestWorktreePathTemplate:
 
         with pytest.raises(ValueError, match="path traversal"):
             _expand_worktree_path(
-                "/tmp/${repo_name}/${feature_name}",
+                "/tmp/${repo_name}/${branch_name}",
                 repo_name="my-repo",
                 feature_name="../../etc/passwd",
             )
@@ -110,7 +65,7 @@ class TestWorktreePathTemplate:
 
         with pytest.raises(ValueError, match="path traversal"):
             _expand_worktree_path(
-                "/tmp/${repo_name}/${feature_name}",
+                "/tmp/${repo_name}/${branch_name}",
                 repo_name="../../../etc",
                 feature_name="test-feature",
             )
@@ -121,7 +76,7 @@ class TestWorktreePathTemplate:
 
         with pytest.raises(ValueError, match="absolute path"):
             _expand_worktree_path(
-                "relative/path/${feature_name}",
+                "relative/path/${branch_name}",
                 repo_name="my-repo",
                 feature_name="test-feature",
             )
@@ -132,7 +87,7 @@ class TestWorktreePathTemplate:
 
         with pytest.raises(ValueError, match="path traversal"):
             _expand_worktree_path(
-                "/tmp/../../../etc/${feature_name}",
+                "/tmp/../../../etc/${branch_name}",
                 repo_name="my-repo",
                 feature_name="test-feature",
             )
@@ -143,7 +98,7 @@ class TestWorktreePathTemplate:
 
         with pytest.raises(ValueError, match="Repository name cannot be empty"):
             _expand_worktree_path(
-                "/tmp/${repo_name}/${feature_name}",
+                "/tmp/${repo_name}/${branch_name}",
                 repo_name="",
                 feature_name="test-feature",
             )
@@ -154,7 +109,7 @@ class TestWorktreePathTemplate:
 
         with pytest.raises(ValueError, match="Feature name cannot be empty"):
             _expand_worktree_path(
-                "/tmp/${repo_name}/${feature_name}",
+                "/tmp/${repo_name}/${branch_name}",
                 repo_name="my-repo",
                 feature_name="",
             )
@@ -165,7 +120,7 @@ class TestWorktreePathTemplate:
 
         with pytest.raises(ValueError, match="Repository name cannot be empty"):
             _expand_worktree_path(
-                "/tmp/${repo_name}/${feature_name}",
+                "/tmp/${repo_name}/${branch_name}",
                 repo_name="   ",
                 feature_name="test-feature",
             )
@@ -198,49 +153,32 @@ class TestStartWorktreeWithConfig:
         assert "Created worktree at" in message
         mock_run.assert_called_once()
 
+    @pytest.mark.parametrize(
+        "config_return",
+        [
+            {"path_template": None},
+            {},
+        ],
+    )
     @patch("claudechic.features.worktree.git.subprocess.run")
     @patch("claudechic.features.worktree.git.get_repo_name")
     @patch("claudechic.features.worktree.git.get_main_worktree")
     @patch("claudechic.features.worktree.git.CONFIG")
-    def test_uses_sibling_behavior_when_template_is_null(
-        self, mock_config, mock_get_main, mock_get_repo, mock_run
+    def test_uses_sibling_behavior_when_no_template(
+        self, mock_config, mock_get_main, mock_get_repo, mock_run, config_return
     ):
-        """Test that sibling behavior is preserved when path_template is null."""
+        """Test that sibling behavior is preserved when path_template is null or missing."""
         from claudechic.features.worktree.git import start_worktree
 
         mock_get_repo.return_value = "test-repo"
         main_worktree_path = Path("/original/test-repo")
         mock_get_main.return_value = (main_worktree_path, "main")
-        mock_config.get.return_value = {"path_template": None}
+        mock_config.get.return_value = config_return
 
         success, message, path = start_worktree("test-feature")
 
         expected_path = Path("/original/test-repo-test-feature")
-        if not success:
-            print(f"Failed: {message}")
         assert success, f"Expected success but got failure: {message}"
-        assert path == expected_path
-        mock_run.assert_called_once()
-
-    @patch("claudechic.features.worktree.git.subprocess.run")
-    @patch("claudechic.features.worktree.git.get_repo_name")
-    @patch("claudechic.features.worktree.git.get_main_worktree")
-    @patch("claudechic.features.worktree.git.CONFIG")
-    def test_uses_sibling_behavior_when_config_missing(
-        self, mock_config, mock_get_main, mock_get_repo, mock_run
-    ):
-        """Test that sibling behavior is preserved when worktree config is missing."""
-        from claudechic.features.worktree.git import start_worktree
-
-        mock_get_repo.return_value = "test-repo"
-        main_worktree_path = Path("/original/test-repo")
-        mock_get_main.return_value = (main_worktree_path, "main")
-        mock_config.get.return_value = {}
-
-        success, message, path = start_worktree("test-feature")
-
-        expected_path = Path("/original/test-repo-test-feature")
-        assert success
         assert path == expected_path
         mock_run.assert_called_once()
 
