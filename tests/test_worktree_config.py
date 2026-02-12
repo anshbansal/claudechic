@@ -187,7 +187,6 @@ class TestStartWorktreeWithConfig:
         mock_get_repo.return_value = "test-repo"
         mock_get_main.return_value = (Path("/original/test-repo"), "main")
 
-        # Use tmp_path for testing
         template = f"{tmp_path}/worktrees/${{repo_name}}/${{branch_name}}"
         mock_config.get.return_value = {"path_template": template}
 
@@ -258,7 +257,6 @@ class TestStartWorktreeWithConfig:
         mock_get_repo.return_value = "test-repo"
         mock_get_main.return_value = (Path("/original/test-repo"), "main")
 
-        # Use a nested path that doesn't exist
         template = f"{tmp_path}/deep/nested/path/${{repo_name}}/${{branch_name}}"
         mock_config.get.return_value = {"path_template": template}
 
@@ -267,5 +265,4 @@ class TestStartWorktreeWithConfig:
         expected_path = (tmp_path / "deep" / "nested" / "path" / "test-repo" / "test-feature").resolve()
         assert success
         assert path == expected_path
-        # Verify parent directories were created
         assert expected_path.parent.exists()
